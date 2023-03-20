@@ -211,7 +211,7 @@ def main():
     import socket
 
     if socket.gethostname() == 'cv12' or socket.gethostname() == 'cv13':
-        imagenet_root = '/local/*/*/ImageNet-clean'
+        imagenet_root = '/local/vondrick/chengzhi/ImageNet-clean'
     elif socket.gethostname() == 'cv11':
         imagenet_root = '/local/*/datasets/ImageNet-clean'
     else:

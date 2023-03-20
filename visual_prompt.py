@@ -135,7 +135,7 @@ def main():
 
     import socket
     if socket.gethostname() == 'cv12' or socket.gethostname() == 'cv13':
-        args.imagenet_root = '/local/*/*/ImageNet-clean'
+        args.imagenet_root = '/local/vondrick/chengzhi/ImageNet-clean'
     else:
         args.imagenet_root = '/local/*/datasets/ImageNet-clean'
 
