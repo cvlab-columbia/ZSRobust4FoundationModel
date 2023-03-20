@@ -43,7 +43,7 @@ Then replace the files in the replace folder to the source code in your environm
 replace `ZSRobust/venv/lib/python3.8/site-packages/clip/clip.py` and `ZSRobust/venv/lib/python3.8/site-packages/clip/model.py` with clip.py and model.py in the replace folder respectively. 
 This is adapting CLIP to enable append token for prompting.
 
-replace the `ZSRobust/venv//lib/python3.8/site-packages/torchvision/datasets` with the files in `replace/torchvision.datasets` 
+replace the `ZSRobust/venv/lib/python3.8/site-packages/torchvision/datasets` with the files in `replace/torchvision.datasets` 
 for updated dataset loader
 
 ### Running
@@ -60,4 +60,4 @@ For finetuning, run
 `python finetuning.py`
 
 An example for running the training: 
-'CUDA_VISIBLE_DEVICES=4,5 python finetuning.py --batch_size 256 --root /local/vondrick/chengzhi --dataset ImageNet --name feimogu --train_eps 1 --train_numsteps 2 --train_stepsize 1`
+`CUDA_VISIBLE_DEVICES=4,5 python finetuning.py --batch_size 256 --root /local/vondrick/chengzhi --dataset ImageNet --name feimogu --train_eps 1 --train_numsteps 2 --train_stepsize 1`
