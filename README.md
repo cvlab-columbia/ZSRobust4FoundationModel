@@ -27,12 +27,36 @@ Pretrained vision-language foundation models like CLIP have exhibited strong gen
 
 ## CLIP Model
 
+### Environment setup:
+
+install virtual environment:
+`pip install virtualenv`
+
+`virtualenv ZSRobust`
+
+`source ZSRobust/venv/bin/activate`
+
+`pip install -r requirement_final.txt`
+
+Then replace the files in the replace folder to the source code in your environmet:  
+
+replace `ZSRobust/venv/lib/python3.8/site-packages/clip/clip.py` and `ZSRobust/venv/lib/python3.8/site-packages/clip/model.py` with clip.py and model.py in the replace folder respectively. 
+This is adapting CLIP to enable append token for prompting.
+
+replace the `ZSRobust/venv//lib/python3.8/site-packages/torchvision/datasets` with the files in `replace/torchvision.datasets` 
+for updated dataset loader
+
+### Running
+
 For adapting for zero-shot adversarial robustness with visual prompting, run
 
 `python visual_prompt.py`
 
+An example for running the eps=1 training is:
+` CUDA_VISIBLE_DEVICES=4,5 python visual_prompt.py --batch_size 256 --root /local/vondrick/chengzhi --dataset ImageNet --add_prompt_size 100 --learning_rate 40 --name feimogu --train_eps 1 --train_numsteps 2 --train_stepsize 1`
 
 For finetuning, run
 
 `python finetuning.py`
 
+An example for running the training: 'CUDA_VISIBLE_DEVICES=4,5 python visual_prompt.py --batch_size 256 --root /local/vondrick/chengzhi --dataset ImageNet --name feimogu --train_eps 1 --train_numsteps 2 --train_stepsize 1`
