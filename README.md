@@ -60,4 +60,4 @@ For finetuning, run
 `python finetuning.py`
 
 An example for running the training: 
-'CUDA_VISIBLE_DEVICES=4,5 python visual_prompt.py --batch_size 256 --root /local/vondrick/chengzhi --dataset ImageNet --name feimogu --train_eps 1 --train_numsteps 2 --train_stepsize 1`
+'CUDA_VISIBLE_DEVICES=4,5 python finetuning.py --batch_size 256 --root /local/vondrick/chengzhi --dataset ImageNet --name feimogu --train_eps 1 --train_numsteps 2 --train_stepsize 1`
