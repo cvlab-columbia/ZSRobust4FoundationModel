@@ -25,6 +25,8 @@ Pretrained vision-language foundation models like CLIP have exhibited strong gen
 |   Vanilla CLIP-B/32 (no defence)  | (initial entry) 	|      6.57        |     **64.56%**     |      Mar 1, 2023        |
 
 
+If you obtain better results, you are welcome to update your results here by sending email or push request.
+
 ## CLIP Model
 
 ### Environment setup:
