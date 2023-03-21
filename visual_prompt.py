@@ -36,7 +36,7 @@ def parse_option():
                         help='batch_size')
     parser.add_argument('--num_workers', type=int, default=64,
                         help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=10,
                         help='number of training epochs')
 
     # optimization
