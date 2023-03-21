@@ -21,6 +21,7 @@ Pretrained vision-language foundation models like CLIP have exhibited strong gen
 | Defence Method 	| Submitted By    	| Accuracy<br>(Robust) | Accuracy<br>(Clean) 	  | Submission Date 	|
 |----------------	|-----------------	|----------------	|-----------------	|-----------------	|
 |       TeCoA w/ Finetuning        | (initial entry) 	|      **38.18%**  |         55.97%     |      Mar 1, 2023        |
+|       TeCoA w/ Prompting        | (initial entry) 	|      **32.00%**  |         53.00%     |      Mar 1, 2023        |
 |       Standard Adv. Training w/ Finetuning        | (initial entry) 	|      10.62%  |         18.49%     |      Mar 1, 2023        |
 |   Vanilla CLIP-B/32 (no defence)  | (initial entry) 	|      6.57        |     **64.56%**     |      Mar 1, 2023        |
 
