@@ -12,7 +12,6 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
-# from torchvision.datasets import CIFAR100, CIFAR10, Caltech101, STL10, OxfordIIITPet, DTD
 
 from torchvision.datasets import StanfordCars, Food101, SUN397, EuroSAT, \
     Caltech256, Country211, Flowers102, PCAM, FGVCAircraft, HatefulMemes
@@ -25,13 +24,15 @@ import torchvision
 import clip
 from models import prompters
 from models.prompters import TokenPrompter, NullPrompter
-from utils import accuracy, AverageMeter, ProgressMeter, save_checkpoint, CLASS_SPLIT_CIFAR100
+from utils import accuracy, AverageMeter, ProgressMeter, save_checkpoint
 from utils import cosine_lr, convert_models_to_fp32, refine_classname
 
 import torch.nn.functional as F
 import numpy as np
 import torch.nn as nn
 
+import functools
+from autoattack import AutoAttack
 
 def parse_option():
     parser = argparse.ArgumentParser('Visual Prompting for CLIP')
@@ -114,7 +115,7 @@ def parse_option():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--VPbaseline', action='store_true')
     parser.add_argument('--CW', action='store_true')
-
+    parser.add_argument('--autoattack', action='store_true')
     parser.add_argument('--train_class_count', type=int, default=90)
     parser.add_argument('--last_num_ft', type=int, default=-1)
 
@@ -351,34 +352,10 @@ def main():
             transform=preprocess224
         )
 
-    elif args.dataset == 'zeroshot_cifar100':
-        train_class_count = args.train_class_count
-        train_dataset = CLASS_SPLIT_CIFAR100(args.root, transform=preprocess, download=True,
-                                             train=True, train_class_count=train_class_count, load_train_classes=True)
-
     val_dataset_list = []
-    # val_dataset_name=['cifar10', 'cifar100', 'LSUN', 'STL-10', 'StanfordCars', 'Food101', 'SUN397', ]
-    # val_dataset_name = ['cifar10', 'cifar100', 'STL10', 'StanfordCars', 'Food101', 'SUN397']
-    val_dataset_name = ['cifar10', 'cifar100', 'STL-10', 'SUN397']
-    val_dataset_name = ['SUN397', 'StanfordCars', 'Food101']
-    val_dataset_name = ['ImageNet', 'cifar10', 'cifar100', 'STL10', 'StanfordCars', 'SUN397']
-    # val_dataset_name = ['ImageNet', 'cifar10', 'cifar100', 'STL10', 'StanfordCars', 'SUN397']
-    val_dataset_name = ['cifar10', 'cifar100', 'ImageNet']
-    val_dataset_name = ['cifar10', 'cifar100']
-
-    val_dataset_name = ['Food101', 'PCAM', 'cifar100', 'oxfordpet', 'flowers102', 'Country211', 'dtd',
-                        'EuroSAT', 'fgvc_aircraft', 'hateful_memes', 'ImageNet', 'cifar10']
-
     val_dataset_name = ['StanfordCars', 'Food101', 'PCAM', 'cifar100', 'hateful_memes', 'oxfordpet', 'flowers102',
-                        'Country211', 'dtd',
-                        'EuroSAT', 'fgvc_aircraft', 'ImageNet', 'cifar10', 'SUN397']
+                        'Country211', 'dtd', 'EuroSAT', 'fgvc_aircraft', 'ImageNet', 'cifar10', 'SUN397']
 
-    # val_dataset_name = ['StanfordCars', 'Food101', 'PCAM', 'cifar100', 'oxfordpet', 'flowers102',
-    #                     'Country211', 'dtd',
-    #                     'EuroSAT', 'fgvc_aircraft', 'ImageNet', 'cifar10', 'SUN397']
-
-    # val_dataset_name = ['Caltech256', 'Caltech101']
-    # val_dataset_name = ['cifar10']
     if args.evaluate:
         val_dataset_name = ['cifar10', 'cifar100', 'STL10', 'SUN397', 'StanfordCars', 'Food101',
                             'oxfordpet', 'flowers102', 'Country211', 'dtd', 'EuroSAT', 'fgvc_aircraft',
@@ -389,7 +366,8 @@ def main():
         val_dataset_name = ['SUN397', 'Food101', 'flowers102', 'Caltech101', 'Caltech256']
 
     else:
-        val_dataset_name = ['cifar10', 'cifar100', 'dtd', 'EuroSAT', ]
+        val_dataset_name = ['cifar10', 'cifar100', 'dtd', 'EuroSAT']
+
 
     for each in val_dataset_name:
         if each == 'cifar10':
@@ -398,18 +376,6 @@ def main():
         elif each == 'cifar100':
             val_dataset_list.append(CIFAR100(args.root, transform=preprocess,
                                              download=True, train=False))
-        elif each == 'zeroshot_cifar100':
-            assert args.dataset == 'zeroshot_cifar100'
-            val_dataset_list.append(CLASS_SPLIT_CIFAR100(args.root, transform=preprocess, download=True,
-                                                         train=False, train_class_count=train_class_count,
-                                                         load_train_classes=False))
-
-        elif each == 'zeroshot_cifar100_overlap':
-            assert args.dataset == 'zeroshot_cifar100'
-            val_dataset_list.append(CLASS_SPLIT_CIFAR100(args.root, transform=preprocess, download=True,
-                                                         train=False, train_class_count=train_class_count,
-                                                         load_train_classes=True))
-
         elif each == 'Caltech101':
             val_dataset_list.append(Caltech101(args.root, target_type='category', transform=preprocess224,
                                                download=True))
@@ -769,6 +735,27 @@ def attack_pgd_noprompt(prompter, model, model_text, model_image, criterion, X, 
 
     return delta
 
+def attack_auto(model, images, target, text_tokens, prompter, add_prompter,
+                         attacks_to_run=['apgd-ce', 'apgd-dlr'], epsilon=0):
+
+    forward_pass = functools.partial(
+        multiGPU_CLIP_image_logits,
+        model=model, text_tokens=text_tokens,
+        prompter=None, add_prompter=None
+    )
+
+    adversary = AutoAttack(forward_pass, norm='Linf', eps=epsilon, version='standard', verbose=False)
+    adversary.attacks_to_run = attacks_to_run
+    x_adv = adversary.run_standard_evaluation(images, target, bs=images.shape[0])
+    return x_adv
+
+def multiGPU_CLIP_image_logits(images, model, text_tokens, prompter=None, add_prompter=None):
+    image_tokens = clip_img_preprocessing(images)
+    prompt_token = None if add_prompter is None else add_prompter()
+    if prompter is not None:
+        image_tokens = prompter(image_tokens)
+    return multiGPU_CLIP(None, None, model, image_tokens, text_tokens, prompt_token=prompt_token)[0]
+
 
 def multiGPU_CLIP(model_image, model_text, model, images, text_tokens, prompt_token=None):
     if prompt_token is not None:
@@ -896,6 +883,11 @@ def validate(val_loader_list, val_dataset_name, texts_list, model, model_text, m
         texts = texts_list[cnt]
         dataset_name = val_dataset_name[cnt]
 
+        binary = ['PCAM', 'hateful_memes']
+        attacks_to_run=['apgd-ce', 'apgd-dlr']
+        if dataset_name in binary:
+            attacks_to_run=['apgd-ce']
+
         batch_time = AverageMeter('Time', ':6.3f')
         losses = AverageMeter('Loss', ':.4e')
         top1_org = AverageMeter('Original Acc@1', ':6.2f')
@@ -957,10 +949,15 @@ def validate(val_loader_list, val_dataset_name, texts_list, model, model_text, m
                     delta_prompt = attack_CW(prompter, model, model_text, model_image, add_prompter, criterion,
                                              images, target, text_tokens,
                                              test_stepsize, args.test_numsteps, 'l_inf', epsilon=args.test_eps)
+                attacked_images = images + delta_prompt
+                elif args.autoattack:
+                    attacked_images = attack_auto(model, images, target, text_tokens,
+                        None, None, epsilon=args.test_eps, attacks_to_run=attacks_to_run)
                 else:
                     delta_prompt = attack_pgd(prompter, model, model_text, model_image, add_prompter, criterion,
                                               images, target, text_tokens,
                                               test_stepsize, args.test_numsteps, 'l_inf', epsilon=args.test_eps)
+                    attacked_images = images + delta_prompt
 
                 # compute output
                 torch.cuda.empty_cache()
@@ -968,7 +965,7 @@ def validate(val_loader_list, val_dataset_name, texts_list, model, model_text, m
                     prompt_token = add_prompter()
                     # output_prompt_adv, _ = model(prompter(clip_img_preprocessing(images + delta_prompt)), text_tokens, prompt_token)
                     output_prompt_adv, _ = multiGPU_CLIP(model_image, model_text, model,
-                                                         prompter(clip_img_preprocessing(images + delta_prompt)),
+                                                         prompter(clip_img_preprocessing(attacked_images)),
                                                          text_tokens, prompt_token)
 
                     loss = criterion(output_prompt_adv, target)
